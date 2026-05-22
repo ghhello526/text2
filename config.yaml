@@ -1,0 +1,51 @@
+# ===== 路径配置 =====
+paths:
+  input_dir: "./input"
+  processed_dir: "./processed"
+  data_dir: "./data"
+
+# ===== OCR 引擎配置 =====
+ocr:
+  mode: "local_first"           # local_first | local_only | cloud_only
+  confidence_threshold: 0.85    # 低于此置信度触发云端兜底
+
+  local:
+    lang: "chi_sim+eng"
+    oem: 3                      # OCR Engine Mode (0=legacy, 1=LSTM, 2=both, 3=default)
+    psm: 3                      # Page Segmentation Mode (3=auto, 6=uniform block)
+    tesseract_cmd: "D:/software/ocr/Tesseract-OCR/tesseract.exe"
+
+  cloud:
+    provider: "qwen"            # qwen | openai
+    model: "qwen-vl-max"
+    timeout: 30                 # HTTP 请求超时秒数
+
+# ===== 图片预处理参数 =====
+preprocess:
+  auto_rotate: true
+  grayscale: true
+  adaptive_binarize: false
+  denoise_kernel: 3             # 中值滤波核大小（奇数）
+  enhance_contrast: true
+  clip_limit: 2.0               # CLAHE 裁剪限制
+  tile_grid_size: [8, 8]        # CLAHE 网格大小
+  split_long_image: true
+  split_height: 1500            # 超过此高度（px）即切分
+  split_overlap: 100            # 切分时相邻片段重叠像素
+
+# ===== 字段提取规则 =====
+extraction:
+  numeric_normalize: true
+
+  fields:
+    - name: date
+      pattern: "\\d{4}[-/年]\\d{1,2}[-/月]\\d{1,2}日?"
+      description: "发帖日期"
+
+    - name: title
+      position: first_line
+      description: "标题"
+
+    - name: body_text
+      type: fulltext
+      description: "正文全文"

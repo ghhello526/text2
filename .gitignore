@@ -1,0 +1,23 @@
+# 虚拟环境
+.venv/
+
+# 环境变量（含 API Key，绝不能提交）
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 数据库
+data/niuniu.db
+
+# IDE
+.vscode/
+.idea/
+
+# Qoder
+.qoder/
+
+# 临时文件
+nul
