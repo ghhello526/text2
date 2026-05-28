@@ -1,25 +1,14 @@
-# 虚拟环境
+venv/
 .venv/
-
-# 环境变量（已提交，含 API Key——确保仓库设为私有！）
-# .env
-
-# Python
 __pycache__/
 *.pyc
 *.pyo
-
-# 数据库
-data/niuniu.db
+images/
+downloaded.json
+data/*.db
 data/*.db-shm
 data/*.db-wal
-
-# IDE
 .vscode/
 .idea/
-
-# Qoder
 .qoder/
-
-# 临时文件
 nul
