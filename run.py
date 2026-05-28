@@ -18,7 +18,7 @@ from loguru import logger
 from src.config_loader import get_config
 from src.ocr_engine import OCREngine
 from src.extractor import Extractor
-from src.storage import init_db, insert_record, query_records
+from src.storage import init_db, insert_record, query_records, is_image_processed
 
 # ---- 金融数据字段中文标签 ----
 FIELD_LABELS: dict[str, str] = {
@@ -136,33 +136,46 @@ def cmd_process(args: argparse.Namespace) -> None:
 
 def cmd_batch(args: argparse.Namespace) -> None:
     """批量处理目录下所有图片。"""
-    input_dir = Path(args.dir)
+    config = get_config()
+    # 如果命令行没有专门指定(使用默认值./input)，则优先使用 config 中的 input_dir
+    if args.dir == "./input" and "input_dir" in config.get("paths", {}):
+        input_dir = Path(config["paths"]["input_dir"])
+    else:
+        input_dir = Path(args.dir)
+
     if not input_dir.is_dir():
         logger.error("目录不存在: {}", input_dir)
         sys.exit(1)
 
-    # 收集所有支持的图片
+    import re
+    # 收集所有支持的图片 (递归查找，包括子文件夹)
     images = sorted(
-        f for f in input_dir.iterdir()
-        if f.is_file() and f.suffix.lower() in SUPPORTED_EXTS
+        f for ext in SUPPORTED_EXTS
+        for f in input_dir.rglob(f"*{ext}")
+        if f.is_file()
     )
 
     if not images:
-        print(f"在 {input_dir} 中未找到支持的图片 ({', '.join(SUPPORTED_EXTS)})")
+        print(f"在 {input_dir} 及其子文件夹中未找到支持的图片 ({', '.join(SUPPORTED_EXTS)})")
         return
 
     print(f"找到 {len(images)} 张图片，开始批量处理...\n")
 
-    config = get_config()
     init_db()
     ocr = OCREngine(config)
     extractor = Extractor(config["extraction"])
 
     success_count = 0
     fail_count = 0
+    skip_count = 0
 
     for i, image_path in enumerate(images, 1):
-        print(f"[{i}/{len(images)}] 正在处理: {image_path.name}")
+        if is_image_processed(str(image_path.resolve())):
+            print(f"[{i}/{len(images)}] 跳过已处理: {image_path.name} ({image_path.parent.name})")
+            skip_count += 1
+            continue
+
+        print(f"[{i}/{len(images)}] 正在处理: {image_path.name} ({image_path.parent.name})")
 
         try:
             text, confidence, engine_name = ocr.recognize(image_path)
@@ -172,11 +185,20 @@ def cmd_batch(args: argparse.Namespace) -> None:
             continue
 
         result = extractor.extract(text)
+        
+        # 从文件夹名称提取日期
+        folder_name = image_path.parent.name
+        match = re.search(r"(\d{4})[-年/.](\d{1,2})[-月/.](\d{1,2})", folder_name)
+        folder_date = None
+        if match:
+            y, m, d = match.groups()
+            folder_date = f"{y}-{int(m):02d}-{int(d):02d}"
+
         status = "ok" if confidence >= 0.5 else "needs_review"
         record_data = {
             "source_image": image_path.name,
             "image_path": str(image_path.resolve()),
-            "extracted_date": result.get("date"),
+            "extracted_date": folder_date or result.get("date"),
             "raw_text": text,
             "fields": result.get("fields", {}),
             "confidence": confidence,
@@ -186,7 +208,7 @@ def cmd_batch(args: argparse.Namespace) -> None:
 
         try:
             record_id = insert_record(record_data)
-            print(f"  → 记录 #{record_id} | 日期: {result.get('date', '-')} | 引擎: {engine_name} | 置信度: {confidence:.2%}")
+            print(f"  → 记录 #{record_id} | 日期: {record_data['extracted_date'] or '-'} | 引擎: {engine_name} | 置信度: {confidence:.2%}")
             success_count += 1
         except Exception as e:
             logger.error("存储失败 [{}]: {}", image_path.name, e)
@@ -194,7 +216,7 @@ def cmd_batch(args: argparse.Namespace) -> None:
 
     print()
     print("=" * 50)
-    print(f"  批量处理完成: 成功 {success_count} 张, 失败 {fail_count} 张")
+    print(f"  批量处理完成: 成功 {success_count} 张, 跳过 {skip_count} 张, 失败 {fail_count} 张")
     print("=" * 50)
 
 

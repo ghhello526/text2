@@ -224,3 +224,24 @@ def get_record(record_id: int, db_path: str | Path | None = None) -> dict[str, A
     except (json.JSONDecodeError, TypeError):
         rec["fields"] = {}
     return rec
+
+
+def is_image_processed(image_path: str, db_path: str | Path | None = None) -> bool:
+    """检查图片是否已经被处理并存入数据库。
+
+    Args:
+        image_path: 图片的绝对路径
+        db_path: 数据库路径
+
+    Returns:
+        如果图片已经被处理，返回 True，否则返回 False
+    """
+    if db_path is None:
+        config = get_config()
+        db_path = Path(config["paths"]["data_dir"]) / "niuniu.db"
+
+    init_db(db_path)
+    conn = sqlite3.connect(str(db_path), timeout=5.0)
+    count = conn.execute("SELECT COUNT(1) FROM records WHERE image_path = ?", (image_path,)).fetchone()[0]
+    conn.close()
+    return count > 0

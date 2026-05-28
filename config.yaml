@@ -1,6 +1,6 @@
 # ===== 路径配置 =====
 paths:
-  input_dir: "./input"
+  input_dir: "../download_image/images"
   processed_dir: "./processed"
   data_dir: "./data"
 
@@ -13,11 +13,11 @@ ocr:
     lang: "chi_sim+eng"
     oem: 3                      # OCR Engine Mode (0=legacy, 1=LSTM, 2=both, 3=default)
     psm: 3                      # Page Segmentation Mode (3=auto, 6=uniform block)
-    tesseract_cmd: "D:/software/ocr/Tesseract-OCR/tesseract.exe"
+    tesseract_cmd: "D:/Software/ocr/tesseract.exe"
 
   cloud:
     provider: "qwen"            # qwen | openai
-    model: "qwen-vl-max"
+    model: "qwen-vl-plus"
     timeout: 30                 # HTTP 请求超时秒数
 
 # ===== 图片预处理参数 =====
@@ -40,7 +40,7 @@ extraction:
   fields:
     # ---- 基金基本信息（从标题行提取）----
     - name: fund_name
-      pattern: "([\\u4e00-\\u9fff]+\\d{1,2})\\s+([A-Z0-9]+\\.[A-Z]+)"
+      pattern: "^(?:(?:第1行：|名称：|基金/指数名称[^\n]*)\n)*([A-Za-z0-9\\u4e00-\\u9fff\\-]+(?:\\s+[A-Za-z0-9\\u4e00-\\u9fff\\-]+)*)\\s+[A-Z0-9]+\\.[A-Z]+"
       description: "基金名称（从「名称 代码.后缀」行提取）"
 
     - name: fund_code
