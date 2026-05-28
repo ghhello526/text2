@@ -1,0 +1,22 @@
+牛牛贴图 OCR 提取系统
+========================
+
+【首次使用】
+  双击运行 setup.bat，自动完成环境配置。
+
+【处理图片】
+  把图片放到 input/ 目录，然后：
+    .venv\Scripts\python.exe run.py batch
+
+  或处理单张：
+    .venv\Scripts\python.exe run.py process -f "图片路径"
+
+【查看结果】
+  .venv\Scripts\python.exe check_db.py          → 查看所有记录
+  .venv\Scripts\python.exe run.py query          → 简洁表格
+  .venv\Scripts\python.exe run.py query --verbose → 含完整文字
+
+【注意事项】
+  1. 确保 .env 中 QWEN_API_KEY 有效（已有，无需改）
+  2. 若用本地 Tesseract，需确认 config.yaml 中 tesseract_cmd 路径正确
+  3. GitHub 仓库地址：https://github.com/ghhello526/text2.git
