@@ -1,8 +1,8 @@
 # 虚拟环境
 .venv/
 
-# 环境变量（含 API Key，绝不能提交）
-.env
+# 环境变量（已提交，含 API Key——确保仓库设为私有！）
+# .env
 
 # Python
 __pycache__/
@@ -11,6 +11,8 @@ __pycache__/
 
 # 数据库
 data/niuniu.db
+data/*.db-shm
+data/*.db-wal
 
 # IDE
 .vscode/

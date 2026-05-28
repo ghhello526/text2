@@ -37,17 +37,18 @@ def clean_text(raw: str) -> str:
             continue
         prev_empty = False
 
-        # 去除纯标点符号行（整行不含 CJK 字符或字母数字）
+        # 去除纯标点符号行（整行不含 CJK 字符、字母数字或金融箭头符号）
         has_content = any(
             "\u4e00" <= c <= "\u9fff" or
             "\u3400" <= c <= "\u4dbf" or
-            c.isalnum()
+            c.isalnum() or
+            c in "↑↓▲▼+-%."
             for c in line
         )
         if not has_content:
             continue
 
-        # 去除不可见控制字符（保留换行）
+        # 去除不可见控制字符（保留换行、箭头字符）
         line = re.sub(r"[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]", "", line)
         lines.append(line)
 
@@ -78,6 +79,16 @@ def clean_text(raw: str) -> str:
     text = re.sub(rf"([{_cjk}]){_sp}([{_punct}])", r"\1\2", text)
     text = re.sub(rf"([{_punct}]){_sp}([{_cjk}])", r"\1\2", text)
     text = re.sub(rf"([{_punct}]){_sp}(\d)", r"\1\2", text)
+
+    # ---- 金融数据专用清洗 ----
+    # 将中文冒号统一为英文冒号（便于后续 key:value 解析）
+    text = text.replace("：", ":")
+    # 修复 OCR 常见的数字粘连中文问题 (e.g., "当前值3.28" -> "当前值:3.28")
+    text = re.sub(
+        rf"(当前值|分位点|危险值|中位数|机会值|最大值|平均值|最小值|标准差|[Zz]分数)"
+        rf"([+-]?[\d,]+\.?\d*%?)",
+        r"\1:\2", text
+    )
     # 压缩连续空行
     text = re.sub(r"\n{3,}", "\n\n", text)
 
@@ -153,7 +164,13 @@ def _orig(text: str, sign: float) -> str:
 
 
 class Extractor:
-    """字段提取器：加载配置规则，从 OCR 文本中结构抽取字段。"""
+    """字段提取器：加载配置规则，从 OCR 文本中结构抽取字段。
+
+    支持三种提取策略（按优先级）：
+      1. pattern — 正则匹配捕获组
+      2. key_value — key:value 行式提取
+      3. position — 按行号/首行/末行提取
+    """
 
     def __init__(self, config: dict | None = None):
         if config is None:
@@ -195,14 +212,18 @@ class Extractor:
 
             value = None
 
+            # ---- 策略 1：正则匹配 ----
             if "pattern" in rule:
-                # 正则匹配
                 m = re.search(rule["pattern"], cleaned)
                 if m:
                     value = m.group(1) if m.lastindex else m.group(0)
 
-            elif "position" in rule:
-                # 位置提取
+            # ---- 策略 2：key:value 行式提取 ----
+            if value is None and "key_label" in rule:
+                value = self._extract_key_value(cleaned, rule["key_label"])
+
+            # ---- 策略 3：位置提取 ----
+            if value is None and "position" in rule:
                 pos = rule["position"]
                 if pos == "first_line" and lines:
                     value = lines[0]
@@ -211,14 +232,16 @@ class Extractor:
                 elif isinstance(pos, int) and 0 < pos <= len(lines):
                     value = lines[pos - 1]
 
-            elif "type" in rule:
-                # 类型提取
+            # ---- 类型提取 ----
+            if value is None and "type" in rule:
                 if rule["type"] == "fulltext":
                     value = cleaned
 
-            # 数值归一化（跳过 fulltext 类型，避免误删逗号等符号）
+            # 数值归一化（跳过 fulltext 类型、或逐字段关闭归一化的场景）
+            field_normalize = rule.get("numeric_normalize", True)
             if (
-                self._numeric_normalize
+                field_normalize
+                and self._numeric_normalize
                 and isinstance(value, str)
                 and value.strip()
                 and rule.get("type") != "fulltext"
@@ -242,3 +265,25 @@ class Extractor:
                 break
 
         return result
+
+    @staticmethod
+    def _extract_key_value(text: str, key_label: str) -> str | None:
+        """从文本中按 key:value 格式提取值。
+
+        匹配模式: key_label[:：]\s*value
+        支持一行多个 key:value 对。
+
+        Args:
+            text: 待搜索文本
+            key_label: 键标签（如 "当前值"、"中位数"）
+
+        Returns:
+            匹配到的值字符串，或 None
+        """
+        # 构建模式：key_label 后接可选后缀(+1)/(-1)、可选分隔符，再提取数值
+        # 支持: "当前值: 3.28" / "当前值3.28" / "标准差(+1) 7.61" / "标准差(-1)3.87"
+        pattern = rf"{re.escape(key_label)}(?:\([+-]?\d+\))?[ 　\t]*[:：]?[ 　\t]*([+-]?[\d,]+\.?\d*%?)"
+        m = re.search(pattern, text)
+        if m:
+            return m.group(1)
+        return None

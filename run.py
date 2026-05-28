@@ -20,6 +20,31 @@ from src.ocr_engine import OCREngine
 from src.extractor import Extractor
 from src.storage import init_db, insert_record, query_records
 
+# ---- 金融数据字段中文标签 ----
+FIELD_LABELS: dict[str, str] = {
+    "fund_name": "基金名称",
+    "fund_code": "代码",
+    "index_points": "点数",
+    "daily_change": "变化幅度",
+    "analysis_type": "分析类型",
+    "current_value": "当前值",
+    "percentile": "分位点",
+    "danger_value": "危险值",
+    "median": "中位数",
+    "opportunity_value": "机会值",
+    "max_value": "最大值",
+    "avg_value": "平均值",
+    "min_value": "最小值",
+    "std_dev": "标准差",
+    "z_score": "Z分数",
+}
+
+
+def _fmt_field(key: str, value) -> str:
+    """格式化单个字段用于终端展示。"""
+    label = FIELD_LABELS.get(key, key)
+    return f"    {label}: {value}"
+
 
 # ---- 支持的图片格式 ----
 SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
@@ -104,7 +129,7 @@ def cmd_process(args: argparse.Namespace) -> None:
     print(f"  结构化字段:")
     for k, v in result.get("fields", {}).items():
         if v is not None:
-            print(f"    {k}: {v}")
+            print(_fmt_field(k, v))
     print("=" * 60)
     print(f"\n[OK] 记录 #{record_id} 已保存")
 

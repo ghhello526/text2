@@ -38,14 +38,65 @@ extraction:
   numeric_normalize: true
 
   fields:
-    - name: date
-      pattern: "\\d{4}[-/年]\\d{1,2}[-/月]\\d{1,2}日?"
-      description: "发帖日期"
+    # ---- 基金基本信息（从标题行提取）----
+    - name: fund_name
+      pattern: "([\\u4e00-\\u9fff]+\\d{1,2})\\s+([A-Z0-9]+\\.[A-Z]+)"
+      description: "基金名称（从「名称 代码.后缀」行提取）"
 
-    - name: title
-      position: first_line
-      description: "标题"
+    - name: fund_code
+      pattern: "([A-Z0-9]+\\.[A-Z]+)"
+      description: "基金代码（如 931140.CSI）"
 
-    - name: body_text
-      type: fulltext
-      description: "正文全文"
+    - name: index_points
+      pattern: "[A-Z0-9]+\\.[A-Z]+\\s+([\\d,]+\\.?\\d*)"
+      description: "指数点数（代码后面的数字）"
+
+    - name: daily_change
+      pattern: "[A-Z0-9]+\\.[A-Z]+\\s+[\\d,]+\\.?\\d*\\s+([+\\-]?\\d+\\.?\\d*%)"
+      description: "日涨跌幅（点数后面的百分比）"
+
+    - name: analysis_type
+      pattern: "(市[盈净]率(?:TTM|LF|LYR)?|股息率|P[EB]|风险溢价)"
+      description: "分析类型"
+
+    # ---- 估值统计指标（key:value 逐行匹配）----
+    - name: current_value
+      key_label: "当前值"
+      description: "当前值"
+
+    - name: percentile
+      key_label: "分位点"
+      numeric_normalize: false
+      description: "分位点"
+
+    - name: danger_value
+      key_label: "危险值"
+      description: "危险值"
+
+    - name: median
+      key_label: "中位数"
+      description: "中位数"
+
+    - name: opportunity_value
+      key_label: "机会值"
+      description: "机会值"
+
+    - name: max_value
+      key_label: "最大值"
+      description: "最大值"
+
+    - name: avg_value
+      key_label: "平均值"
+      description: "平均值"
+
+    - name: min_value
+      key_label: "最小值"
+      description: "最小值"
+
+    - name: std_dev
+      key_label: "标准差"
+      description: "标准差"
+
+    - name: z_score
+      key_label: "z 分数"
+      description: "Z分数"
